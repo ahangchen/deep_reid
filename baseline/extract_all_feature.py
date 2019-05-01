@@ -5,25 +5,27 @@ from __future__ import print_function, division
 import argparse
 import torch
 import torch.nn as nn
+from PIL import Image
 from torch.autograd import Variable
 from torchvision import datasets, transforms
 import os
 import numpy as np
 import scipy.io
-from baseline.model import ft_net, ft_net_dense, PCB, PCB_test
+from baseline.model import ft_net, ft_net_dense, PCB, PCB_test, ft_net_test
 
 ######################################################################
 # Options
 # --------
 from utils.file_helper import safe_mkdir, write_line
+from utils.torch_util import load_match_dict
 
 parser = argparse.ArgumentParser(description='Training')
-parser.add_argument('--gpu_ids',default='0', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
+parser.add_argument('--gpu_ids',default='3', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--which_epoch',default='last', type=str, help='0,1,2,3...or last')
-parser.add_argument('--test_dir',default='/home/cwh/coding/dataset/sysu',type=str, help='./test_data')
-parser.add_argument('--name', default='sysu', type=str, help='save model path')
+parser.add_argument('--test_dir',default='/home/cwh/coding/sysu',type=str, help='./test_data')
+parser.add_argument('--name', default='sysu_train', type=str, help='save model path')
 parser.add_argument('--class_cnt', default=696, type=int, help='class count in training set')
-parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
+parser.add_argument('--batchsize', default=16, type=int, help='batchsize')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121' )
 parser.add_argument('--PCB', action='store_true', help='use PCB' )
 
@@ -42,7 +44,8 @@ for str_id in str_ids:
         gpu_ids.append(id)
 
 # set gpu ids
-if len(gpu_ids)>0:
+use_gpu = torch.cuda.is_available()
+if use_gpu and len(gpu_ids)>0:
     torch.cuda.set_device(gpu_ids[0])
 
 ######################################################################
@@ -82,14 +85,15 @@ dataloader = torch.utils.data.DataLoader(image_dataset, batch_size=opt.batchsize
                                              shuffle=False, num_workers=16)
 
 class_names = image_dataset.classes
-use_gpu = torch.cuda.is_available()
+
 
 ######################################################################
 # Load model
 #---------------------------
 def load_network(network):
     save_path = os.path.join('./model',name,'net_%s.pth'%opt.which_epoch)
-    network.load_state_dict(torch.load(save_path))
+    # network.load_state_dict(torch.load(save_path))
+    load_match_dict(network, save_path)
     return network
 
 
@@ -122,7 +126,7 @@ def extract_feature(model,dataloader):
         for i in range(2):
             if(i==1):
                 img = fliplr(img)
-            input_img = Variable(img.cuda())
+            input_img = Variable(img)
             outputs = model(input_img)
             f = outputs.data.cpu()
             ff = ff+f
@@ -180,7 +184,8 @@ print('-------test-----------')
 if opt.use_dense:
     model_structure = ft_net_dense(opt.class_cnt)
 else:
-    model_structure = ft_net(opt.class_cnt)
+    # model_structure = ft_net(opt.class_cnt)
+    model_structure = ft_net_test()
 
 if opt.PCB:
     model_structure = PCB(opt.class_cnt)
