@@ -193,6 +193,31 @@ class ft_net_middle(nn.Module):
         x = self.classifier(x)
         return x
 
+# Define the ResNet50-based Model
+class ft_net_test(nn.Module):
+
+    def __init__(self):
+        super(ft_net_test, self).__init__()
+        model_ft = models.resnet50(pretrained=True)
+        # avg pooling to global pooling
+        model_ft.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        model_ft.fc = nn.Sequential()
+        self.model = model_ft
+
+    def forward(self, x):
+        x = self.model.conv1(x)
+        x = self.model.bn1(x)
+        x = self.model.relu(x)
+        x = self.model.maxpool(x)
+        x = self.model.layer1(x)
+        x = self.model.layer2(x)
+        x = self.model.layer3(x)
+        x = self.model.layer4(x)
+        x = self.model.avgpool(x)
+        x = torch.squeeze(x)
+        return x
+
+
 # Part Model proposed in Yifan Sun etal. (2018)
 class PCB(nn.Module):
     def __init__(self, class_num ):
